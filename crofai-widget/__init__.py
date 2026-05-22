@@ -24,6 +24,7 @@ logger = logging.getLogger(__name__)
 _USAGE_API = "https://crof.ai/usage_api/"
 _CACHE: dict = {"data": None}
 
+# the cache system is a little complex and unnecessary but I will try to make it more concise in the future.
 
 def _bust_cache() -> None:
     """Schedule the usage cache for refresh ~1.5s from now.
@@ -31,11 +32,7 @@ def _bust_cache() -> None:
     The CrofAI usage stats endpoint may not reflect the latest API call
     immediately — this delay gives the backend a moment to process it.
     """
-    _CACHE["bust_at"] = time.time() + 1.5
-
-
-# ── Usage API helpers ────────────────────────────────────────────────────
-
+    _CACHE["bust_at"] = time.time() + 0.5
 
 def _fetch_usage(*, force: bool = False) -> dict:
     """Fetch usage stats, cached until ``_bust_cache()`` delay elapses."""
@@ -43,14 +40,14 @@ def _fetch_usage(*, force: bool = False) -> dict:
 
     bust_at = _CACHE.get("bust_at", 0)
     if bust_at > now:
-        # Still within the 1.5s delay window — return cached
+        # if within the 1.5s delay window return cached
         if _CACHE["data"] is not None:
             return _CACHE["data"]
     elif bust_at > 0:
-        # Delay has elapsed — clear the flag and refresh
+        # if delay has elapsed clear the flag and refresh
         del _CACHE["bust_at"]
     else:
-        # No bust scheduled — return cached if we have it
+        # if no bust scheduled return cached if we have it
         if not force and _CACHE["data"] is not None:
             return _CACHE["data"]
 
@@ -91,9 +88,9 @@ def _build_usage_widget():
         reqs = usage.get("usable_requests")
         if isinstance(credits, (int, float)):
             if reqs is not None:
-                return f" CrofAI: ${credits:.2f} \u2502 {int(reqs):,} reqs "
-            return f" CrofAI: ${credits:.2f} "
-        return " CrofAI: \u2014 "
+                return f" Credit ${credits:.3f} \u2502 {int(reqs):,} reqs "
+            return f" Credit ${credits:.3f} "
+        return " Credit \u2014 "
 
     return Window(FormattedTextControl(_content), height=1, style="class:status-bar")
 
