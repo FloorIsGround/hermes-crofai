@@ -1,0 +1,5 @@
+name: crofai-widget
+kind: standalone
+version: 1.0.0
+description: CrofAI TUI usage widget — persistent credits/requests display
+author: FloorIsGround
