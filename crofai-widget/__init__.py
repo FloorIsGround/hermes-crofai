@@ -22,7 +22,7 @@ from urllib.request import Request, urlopen
 logger = logging.getLogger(__name__)
 
 _USAGE_API = "https://crof.ai/usage_api/"
-_CACHE: dict = {"data": None, "timestamp": 0.0, "ttl": 15}
+_CACHE: dict = {"data": None, "timestamp": 0.0}
 
 
 def _bust_cache() -> None:
@@ -34,9 +34,9 @@ def _bust_cache() -> None:
 
 
 def _fetch_usage(*, force: bool = False) -> dict:
-    """Fetch usage stats, cached for ``_CACHE["ttl"]`` seconds."""
+    """Fetch usage stats, cached until the next ``_bust_cache()`` call."""
     now = time.time()
-    if not force and _CACHE["data"] and (now - _CACHE["timestamp"] < _CACHE["ttl"]):
+    if not force and _CACHE["data"] is not None and _CACHE["timestamp"] > 0:
         return _CACHE["data"]
 
     api_key = os.environ.get("CROFAI_API_KEY")
