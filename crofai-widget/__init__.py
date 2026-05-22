@@ -22,27 +22,41 @@ from urllib.request import Request, urlopen
 logger = logging.getLogger(__name__)
 
 _USAGE_API = "https://crof.ai/usage_api/"
-_CACHE: dict = {"data": None, "timestamp": 0.0}
+_CACHE: dict = {"data": None}
 
 
 def _bust_cache() -> None:
-    """Force the next ``_fetch_usage()`` call to hit the API."""
-    _CACHE["timestamp"] = 0.0
+    """Schedule the usage cache for refresh ~1.5s from now.
+
+    The CrofAI usage stats endpoint may not reflect the latest API call
+    immediately — this delay gives the backend a moment to process it.
+    """
+    _CACHE["bust_at"] = time.time() + 1.5
 
 
 # ── Usage API helpers ────────────────────────────────────────────────────
 
 
 def _fetch_usage(*, force: bool = False) -> dict:
-    """Fetch usage stats, cached until the next ``_bust_cache()`` call."""
+    """Fetch usage stats, cached until ``_bust_cache()`` delay elapses."""
     now = time.time()
-    if not force and _CACHE["data"] is not None and _CACHE["timestamp"] > 0:
-        return _CACHE["data"]
+
+    bust_at = _CACHE.get("bust_at", 0)
+    if bust_at > now:
+        # Still within the 1.5s delay window — return cached
+        if _CACHE["data"] is not None:
+            return _CACHE["data"]
+    elif bust_at > 0:
+        # Delay has elapsed — clear the flag and refresh
+        del _CACHE["bust_at"]
+    else:
+        # No bust scheduled — return cached if we have it
+        if not force and _CACHE["data"] is not None:
+            return _CACHE["data"]
 
     api_key = os.environ.get("CROFAI_API_KEY")
     if not api_key:
         _CACHE["data"] = {"error": "CROFAI_API_KEY not set"}
-        _CACHE["timestamp"] = now
         return _CACHE["data"]
 
     try:
@@ -52,11 +66,9 @@ def _fetch_usage(*, force: bool = False) -> dict:
         with urlopen(req, timeout=5) as resp:
             data: dict = json.loads(resp.read().decode())
             _CACHE["data"] = data
-            _CACHE["timestamp"] = now
             return data
     except Exception as exc:
         _CACHE["data"] = {"error": str(exc)}
-        _CACHE["timestamp"] = now
         return _CACHE["data"]
 
 
