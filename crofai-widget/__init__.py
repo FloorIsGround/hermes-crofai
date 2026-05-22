@@ -91,6 +91,8 @@ def _make_crofai_cli():
     class CrofaiCLI(HermesCLI):
         """Hermes TUI with a persistent CrofAI usage widget in the status bar."""
 
+        _crofai_widget_builtin = True  # marker for hook guards
+
         def _get_extra_tui_widgets(self):
             return [_build_usage_widget()]
 
@@ -297,10 +299,15 @@ def _on_session_start(**kwargs: object) -> None:
     if cli is None:
         return
 
+    # Skip if the subclass already bakes the widget in
+    if getattr(cli, "_crofai_widget_builtin", False):
+        logger.info("crofai-widget: on_session_start — skipping (CrofaiCLI subclass)")
+        return
+
     if getattr(cli, "_crofai_widget_injected", False):
         return
 
-    ok = _inject_tui_widget(cli)
+    ok = _patch_get_extra_widgets(cli)
     cli._crofai_widget_injected = ok
     logger.info("crofai-widget: on_session_start → inject=%s", ok)
 
@@ -315,6 +322,10 @@ def _post_api_request(**kwargs: object) -> None:
     if getattr(cli, "_crofai_widget_injected", False):
         return
 
+    # Skip if the subclass already bakes the widget in
+    if getattr(cli, "_crofai_widget_builtin", False):
+        return
+
     logger.info(
         "crofai-widget: post_api_request FIRED (fallback).  "
         "kwargs_keys=%s  _cli_ref=%s",
@@ -325,7 +336,7 @@ def _post_api_request(**kwargs: object) -> None:
     if cli is None:
         return
 
-    ok = _inject_tui_widget(cli)
+    ok = _patch_get_extra_widgets(cli)
     cli._crofai_widget_injected = ok
     logger.info("crofai-widget: post_api_request fallback → inject=%s", ok)
 
