@@ -7,7 +7,7 @@ Adds CrofAI as a first-class provider in Hermes, with auto-detected model listin
 ## Quick Install
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/FloorIsTired/hermes-crofai/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/FloorIsGround/hermes-crofai/main/install.sh | bash
 ```
 
 ## Manual Install
@@ -16,9 +16,9 @@ Drop these two files into your Hermes plugins directory:
 
 ```bash
 mkdir -p ~/.hermes/plugins/model-providers/crofai
-curl -fsSL https://raw.githubusercontent.com/FloorIsTired/hermes-crofai/main/plugin.yaml \
+curl -fsSL https://raw.githubusercontent.com/FloorIsGround/hermes-crofai/main/plugin.yaml \
   -o ~/.hermes/plugins/model-providers/crofai/plugin.yaml
-curl -fsSL https://raw.githubusercontent.com/FloorIsTired/hermes-crofai/main/__init__.py \
+curl -fsSL https://raw.githubusercontent.com/FloorIsGround/hermes-crofai/main/__init__.py \
   -o ~/.hermes/plugins/model-providers/crofai/__init__.py
 ```
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-REPO="https://raw.githubusercontent.com/FloorIsTired/hermes-crofai/main"
+REPO="https://raw.githubusercontent.com/FloorIsGround/hermes-crofai/main"
 INSTALL_DIR="${HERMES_HOME:-$HOME/.hermes}/plugins/model-providers/crofai"
 
 echo "Installing CrofAI provider for Hermes Agent..."
