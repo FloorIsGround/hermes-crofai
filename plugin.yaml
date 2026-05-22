@@ -1,0 +1,5 @@
+name: crofai
+kind: model-provider
+version: 1.0.0
+description: CrofAI — powerful models, crazy cheap pricing
+author: FloorIsTired
