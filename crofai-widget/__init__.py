@@ -22,7 +22,12 @@ from urllib.request import Request, urlopen
 logger = logging.getLogger(__name__)
 
 _USAGE_API = "https://crof.ai/usage_api/"
-_CACHE: dict = {"data": None, "timestamp": 0.0, "ttl": 60}
+_CACHE: dict = {"data": None, "timestamp": 0.0, "ttl": 15}
+
+
+def _bust_cache() -> None:
+    """Force the next ``_fetch_usage()`` call to hit the API."""
+    _CACHE["timestamp"] = 0.0
 
 
 # ── Usage API helpers ────────────────────────────────────────────────────
@@ -341,6 +346,11 @@ def _post_api_request(**kwargs: object) -> None:
     logger.info("crofai-widget: post_api_request fallback → inject=%s", ok)
 
 
+def _post_api_request_bust_cache(**kwargs: object) -> None:
+    """Bust the usage cache after each API call so the widget stays current."""
+    _bust_cache()
+
+
 # ── Slash command handler ────────────────────────────────────────────────
 
 
@@ -374,6 +384,7 @@ def register(ctx) -> None:
     """Register this plugin with Hermes."""
     ctx.register_hook("on_session_start", _on_session_start)
     ctx.register_hook("post_api_request", _post_api_request)
+    ctx.register_hook("post_api_request", _post_api_request_bust_cache)
     ctx.register_command(
         "crofai",
         handler=_handle_crofai,
