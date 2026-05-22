@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-REPO="https://raw.githubusercontent.com/FloorIsGround/hermes-crofai/main"
+REPO="https://raw.githubusercontent.com/FloorIsGround/hermes-crofai/testing/crofai-widget"
 INSTALL_DIR="${HERMES_HOME:-$HOME/.hermes}/plugins/model-providers/crofai"
 WIDGET_DIR="${HERMES_HOME:-$HOME/.hermes}/plugins/crofai-widget"
 
