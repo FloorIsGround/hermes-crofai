@@ -4,9 +4,11 @@ Registers:
   - on_session_start hook  → tries to patch _get_extra_tui_widgets
   - post_api_request hook  → fallback (known to fire, for timing comparison)
   - /crofai slash command  → always works, fetches & displays usage
+  - hermes crof CLI cmd    → runs TUI with persistent usage widget
 
-This plugin exists to test whether on_session_start fires in the Hermes CLI
-TUI at a time when _cli_ref is available for TUI layout monkey-patching.
+The ``hermes crof`` command is the primary way to get the persistent widget —
+it subclasses ``HermesCLI`` at import time so the widget is baked into the
+TUI layout from the very first render.
 """
 
 from __future__ import annotations
@@ -74,12 +76,135 @@ def _build_usage_widget():
             if reqs is not None:
                 return f" CrofAI: ${credits:.2f} \u2502 {int(reqs):,} reqs "
             return f" CrofAI: ${credits:.2f} "
-        return " CrofAI: — "
+        return " CrofAI: \u2014 "
 
     return Window(FormattedTextControl(_content), height=1, style="class:status-bar")
 
 
-# ── Layout injection helpers ─────────────────────────────────────────────
+# ─── HermesCLI subclass for persistent widget ────────────────────────────
+
+
+def _make_crofai_cli():
+    """Dynamically create a ``HermesCLI`` subclass with the widget baked in."""
+    from cli import HermesCLI
+
+    class CrofaiCLI(HermesCLI):
+        """Hermes TUI with a persistent CrofAI usage widget in the status bar."""
+
+        def _get_extra_tui_widgets(self):
+            return [_build_usage_widget()]
+
+    return CrofaiCLI
+
+
+# ── CLI subcommand: ``hermes crof`` ──────────────────────────────────────
+
+
+def _setup_crof_parser(subparser) -> None:
+    """Add arguments to the ``hermes crof`` subparser."""
+    subparser.add_argument(
+        "-m", "--model", default=None,
+        help="Model override (e.g. anthropic/claude-sonnet-4.6)",
+    )
+    subparser.add_argument(
+        "--provider", default=None,
+        help="Provider override (e.g. openrouter, crofai)",
+    )
+    subparser.add_argument(
+        "-t", "--toolsets", default=None,
+        help="Comma-separated toolsets to enable",
+    )
+    subparser.add_argument(
+        "--skills", default=None, nargs="*",
+        help="Skills to preload for the session",
+    )
+    subparser.add_argument(
+        "-q", "--query", default=None,
+        help="Single query to execute (then exit)",
+    )
+    subparser.add_argument(
+        "--image", default=None,
+        help="Local image path to attach to a single query",
+    )
+    subparser.add_argument(
+        "-v", "--verbose", action="store_true", help="Enable verbose logging",
+    )
+    subparser.add_argument(
+        "--quiet", action="store_true", help="Suppress non-essential output",
+    )
+    subparser.add_argument(
+        "-c", "--continue", dest="continue_last", default=None,
+        nargs="?", const=True,
+        help="Resume the most recent session (or a session by name/ID)",
+    )
+    subparser.add_argument(
+        "--resume", default=None,
+        help="Resume a specific session by ID",
+    )
+    subparser.add_argument(
+        "-w", "--worktree", action="store_true",
+        help="Run in an isolated git worktree",
+    )
+    subparser.add_argument(
+        "--checkpoints", action="store_true",
+        help="Enable checkpointing for the session",
+    )
+    subparser.add_argument(
+        "--max-turns", type=int, default=None,
+        help="Maximum tool-calling iterations",
+    )
+    subparser.add_argument(
+        "--ignore-rules", action="store_true",
+        help="Skip AGENTS.md / CLAUDE.md / .cursorrules loading",
+    )
+    subparser.add_argument(
+        "--ignore-user-config", action="store_true",
+        help="Skip user config loading",
+    )
+
+
+def _handle_crof_cli(args) -> None:
+    """Run the Hermes TUI with the CrofAI usage widget displayed.
+
+    Monkey-patches ``cli.HermesCLI`` with ``CrofaiCLI`` (a subclass that
+    overrides ``_get_extra_tui_widgets``) so the widget is baked into the
+    TUI layout at build time — no hook timing issues.
+    """
+    import cli as cli_mod
+
+    # Swap HermesCLI for our subclass
+    CrofaiCLI = _make_crofai_cli()
+    original = cli_mod.HermesCLI
+    cli_mod.HermesCLI = CrofaiCLI
+
+    # Resolve --continue into --resume (same logic as cmd_chat)
+    resume_val = getattr(args, "resume", None)
+    continue_val = getattr(args, "continue_last", None)
+    if continue_val and not resume_val:
+        if isinstance(continue_val, str):
+            args.resume = continue_val
+        else:
+            # -c with no argument — find the last CLI session
+            from hermes_cli.main import _resolve_last_session
+            last_id = _resolve_last_session(source="cli")
+            if last_id:
+                args.resume = last_id
+
+    # Build kwargs matching cli.main() signature
+    kwargs = {k: getattr(args, k, None) for k in (
+        "model", "provider", "toolsets", "skills", "verbose", "quiet",
+        "query", "image", "resume", "worktree", "checkpoints",
+        "max_turns", "ignore_rules", "ignore_user_config",
+    )}
+    kwargs = {k: v for k, v in kwargs.items() if v is not None}
+
+    try:
+        cli_mod.main(**kwargs)
+    finally:
+        cli_mod.HermesCLI = original
+
+
+# ── Layout injection helpers (hook-based, for comparison) ────────────────
 
 
 def _patch_get_extra_widgets(cli) -> bool:
@@ -117,19 +242,6 @@ def _patch_hsplit_children(cli) -> bool:
             return False
 
         children = container.children
-        # Insert just before the status bar (which is the first child after
-        # the spacer in _build_tui_layout_children's default order). Walk
-        # backwards to find it.
-        insert_before = None
-        for idx, child in enumerate(children):
-            style = getattr(getattr(child, "style", None), "name", "") if hasattr(child, "style") else ""
-            # crude heuristic: status bar is usually a Window with
-            # style containing "status". We look for it by position —
-            # it's after the spacer in the default layout.
-            pass
-
-        # Simplest heuristic: insert before last 5 children
-        # (status_bar, input_rule_top, image_bar, input_area, ...)
         if len(children) > 5:
             widget = _build_usage_widget()
             children.insert(-5, widget)
@@ -156,7 +268,6 @@ def _inject_tui_widget(cli) -> bool:
     monkey_ok = _patch_get_extra_widgets(cli)
     hsplit_ok = _patch_hsplit_children(cli)
 
-    # Trigger redraw
     try:
         cli._invalidate()
     except Exception:
@@ -165,14 +276,11 @@ def _inject_tui_widget(cli) -> bool:
     return monkey_ok or hsplit_ok
 
 
-# ── Hook handlers ────────────────────────────────────────────────────────
+# ── Hook handlers (debug comparison vs subclass approach) ────────────────
 
 
 def _on_session_start(**kwargs: object) -> None:
-    """Fired (theoretically) when a conversation session starts.
-
-    We attempt TUI widget injection and log everything for debug.
-    """
+    """Debug hook: fires when a new session starts."""
     from hermes_cli.plugins import get_plugin_manager
 
     mgr = get_plugin_manager()
@@ -198,16 +306,12 @@ def _on_session_start(**kwargs: object) -> None:
 
 
 def _post_api_request(**kwargs: object) -> None:
-    """Fallback: fires after every LLM API call — definitely works.
-
-    Used as a timing comparison against on_session_start.
-    """
+    """Fallback: fires after every LLM API call."""
     from hermes_cli.plugins import get_plugin_manager
 
     mgr = get_plugin_manager()
     cli = mgr._cli_ref
 
-    # Only attempt injection once
     if getattr(cli, "_crofai_widget_injected", False):
         return
 
@@ -264,6 +368,15 @@ def register(ctx) -> None:
         handler=_handle_crofai,
         description="Show CrofAI usage stats (credits, requests)",
     )
+    ctx.register_cli_command(
+        "crof",
+        help="Run TUI with CrofAI usage widget",
+        description="Run the Hermes interactive TUI with a persistent CrofAI usage "
+                    "widget showing live credits and request counts.",
+        setup_fn=_setup_crof_parser,
+        handler_fn=_handle_crof_cli,
+    )
     logger.info(
-        "crofai-widget: registered — on_session_start, post_api_request, /crofai"
+        "crofai-widget: registered — on_session_start, post_api_request, "
+        "/crofai, hermes crof"
     )
