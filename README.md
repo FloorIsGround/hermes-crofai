@@ -50,15 +50,25 @@ The model list is fetched live from CrofAI's API on provider selection. Current 
 | Model | Context | Quant |
 |-------|---------|-------|
 | DeepSeek V4 Pro | 1M | Q4_0 |
+| DeepSeek V4 Pro (Precision) | 1M | Q8_0 |
 | DeepSeek V4 Flash | 1M | Q4_0 |
 | DeepSeek V3.2 | 164K | Q4_0 |
 | Kimi K2.6 | 262K | Q3_K_L |
+| Kimi K2.6 (Precision) | 262K | int4 |
+| Kimi K2.5 | 262K | Q4_K_M |
+| Kimi K2.5 (Lightning) | 131K | 530b-int4 |
 | GLM 5.1 | 203K | Q6_K |
+| GLM 5.1 (Precision) | 203K | Q8_0 |
+| GLM 5 | 203K | Q4_0 |
+| GLM 4.7 | 203K | Q8_0 |
+| GLM 4.7 Flash | 203K | FP8 |
 | Gemma 4 31B | 262K | Q4_0 |
 | MiniMax M2.5 | 205K | AWQ |
+| Qwen3.6 27B | 262K | Q4_0 |
 | Qwen3.5 397B A17B | 262K | Q4_0 |
 | Qwen3.5 9B | 262K | FP8 |
 | MiMo V2.5 Pro | 1M | Q4_0 |
+| MiMo V2.5 Pro (Precision) | 1M | Q8_0 |
 
 Run `hermes model` after selecting CrofAI to see the full live list with pricing.
 
