@@ -4,22 +4,11 @@ A [Hermes Agent](https://hermes-agent.nousresearch.com) provider plugin for [Cro
 
 Adds CrofAI as a first-class provider in Hermes, with auto-detected model listings, credential management, and full integration with `hermes doctor`, `hermes model`, and `hermes setup`.
 
-## Quick Install
+## Quick Install (testing branch)
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/FloorIsGround/hermes-crofai/main/install.sh | bash
-```
-
-## Manual Install
-
-Drop these two files into your Hermes plugins directory:
-
-```bash
-mkdir -p ~/.hermes/plugins/model-providers/crofai
-curl -fsSL https://raw.githubusercontent.com/FloorIsGround/hermes-crofai/main/plugin.yaml \
-  -o ~/.hermes/plugins/model-providers/crofai/plugin.yaml
-curl -fsSL https://raw.githubusercontent.com/FloorIsGround/hermes-crofai/main/__init__.py \
-  -o ~/.hermes/plugins/model-providers/crofai/__init__.py
+curl -fsSL https://raw.githubusercontent.com/FloorIsGround/hermes-crofai/testing/crofai-widget/install.sh | bash
+hermes plugins enable crofai-widget
 ```
 
 ## Setup
@@ -29,15 +18,16 @@ curl -fsSL https://raw.githubusercontent.com/FloorIsGround/hermes-crofai/main/__
    ```
    CROFAI_API_KEY="your-key-here"
    ```
-3. **Restart Hermes** and select CrofAI:
-   ```bash
-   hermes --provider crofai
-   ```
-   Or set it as your default:
+3. **Set CrofAI as your provider:**
    ```bash
    hermes config set model.provider crofai
    hermes config set model.default deepseek-v4-flash
    ```
+4. **Start the TUI with the usage widget:**
+   ```bash
+   hermes crof
+   ```
+   Or type `/crofai` in any Hermes session to see usage on demand.
 
 ## Verify
 
@@ -81,34 +71,20 @@ Run `hermes model` after selecting CrofAI to see the full live list with pricing
 - Reasoning effort control (`low`, `medium`, `high`, `none`)
 - All standard parameters (`temperature`, `top_p`, `max_tokens`, `stop`, `seed`, `repetition_penalty`)
 
-## Files
-
-```
-hermes-crofai/
-├── __init__.py             # Provider profile definition
-├── plugin.yaml             # Model-provider plugin manifest (kind: model-provider)
-├── crofai-widget/
-│   ├── __init__.py         # TUI widget plugin — on_session_start + post_api_request hooks
-│   └── plugin.yaml         # General plugin manifest (kind: standalone)
-├── install.sh              # One-liner install script
-├── README.md               # This file
-└── LICENSE                 # MIT
-```
-
 ## TUI Widget Plugin
 
-The companion `crofai-widget` plugin shows CrofAI usage stats (credits, remaining requests)
-in the TUI as a persistent status bar widget. It also provides a `/crofai` slash command.
+The companion `crofai-widget` plugin adds a persistent usage widget to the TUI status bar
+showing live CrofAI credits and remaining requests. It also provides a `/crofai` slash command.
 
 ### How it works
 
-The widget plugin registers three hooks:
+The widget is baked into the TUI layout at startup via a `HermesCLI` subclass — no hook
+timing issues. It refreshes automatically after each API call via a `post_api_request` hook.
 
-| Hook | Purpose |
-|------|---------|
-| `on_session_start` | Attempts to inject the usage widget into the TUI layout. **May not fire** — this is being tested. |
-| `post_api_request` | Fallback injection attempt. Fires after every LLM API call, so it will run. |
-| `/crofai` slash cmd | Always works — displays credits + requests on demand. |
+| Feature | How to use |
+|---------|-----------|
+| `hermes crof` | Start the TUI with the persistent widget in the status bar |
+| `/crofai` | Show credits + requests on demand in any session |
 
 ### Enable it
 
@@ -116,19 +92,29 @@ The widget plugin registers three hooks:
 hermes plugins enable crofai-widget
 ```
 
-Then restart the TUI. Type `/crofai` to test the slash command immediately.
-The persistent widget will appear after the first API request or session start.
+Then run `hermes crof` to start the TUI with the widget.
 
 ### Debugging
 
-Hook invocation is logged to `~/.hermes/logs/` at INFO level:
+If the widget doesn't appear, check the log:
 
 ```bash
 grep "crofai-widget" ~/.hermes/logs/agent.log
 ```
 
-This tells you whether `on_session_start` fired and whether the layout injection
-was attempted. File an issue with this output if the widget doesn't appear.
+## Files
+
+```
+hermes-crofai/
+├── __init__.py             # Provider profile definition
+├── plugin.yaml             # Model-provider plugin manifest
+├── crofai-widget/
+│   ├── __init__.py         # TUI widget plugin
+│   └── plugin.yaml         # Widget plugin manifest
+├── install.sh              # One-liner install script
+├── README.md               # This file
+└── LICENSE                 # MIT
+```
 
 ## License
 
